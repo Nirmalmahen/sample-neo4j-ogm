@@ -19,32 +19,32 @@ public class GraphHelperService {
     Neo4jSessionFactory sessionFactory;
 
     public CompletableFuture<BaseResponse> insert(GraphRequest request) {
-
-        CompletableFuture<BaseResponse> future = new CompletableFuture<>();
-        CompletableFuture.supplyAsync(() -> {
-            insertGraph(request);
-            future.complete(BaseResponse.create(true, "Inserted."));
-            return future;
-        }).exceptionally(throwable -> {
-            future.complete(BaseResponse.create(false, throwable.getCause().getMessage()));
-            return null;
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                insertGraph(request);
+                return BaseResponse.create(true, "Inserted.");
+            } catch (Exception e) {
+                return BaseResponse.create(false, e.getMessage());
+            }
         });
-        return future;
     }
 
     private void insertGraph(GraphRequest request) {
         SessionFactory factory = sessionFactory.produceSessionFactory();
-        Session session =factory.openSession();
-
-        Diagnosis diagnosis = processDiagnosis(request.getDiagnosis(), session);
-        Gender gender = processGender(request.getGender(), session, diagnosis);
-        Age age = processAge(session, gender, request.getAge());
-        Ethnicity ethnicity = processEthnicity(session, age, request.getEthnicity());
-        HPI hpi = processHpi(session, ethnicity, request.getHpi());
-        FamilyHistory familyHistory = processFamilyHistory(session, hpi, request.getHistory());
-        Medication medication = processMedication(session, familyHistory, request.getMedicine());
-        processDosage(request.getDosage(), session, medication);
-        sessionFactory.disposeSessionFactory(factory);
+        Session session = factory.openSession();
+        try {
+            Diagnosis diagnosis = processDiagnosis(request.getDiagnosis(), session);
+            Gender gender = processGender(request.getGender(), session, diagnosis);
+            Age age = processAge(session, gender, request.getAge());
+            Ethnicity ethnicity = processEthnicity(session, age, request.getEthnicity());
+            HPI hpi = processHpi(session, ethnicity, request.getHpi());
+            FamilyHistory familyHistory = processFamilyHistory(session, hpi, request.getHistory());
+            Medication medication = processMedication(session, familyHistory, request.getMedicine());
+            processDosage(request.getDosage(), session, medication);
+        } finally {
+            session.clear(); // Ensure session is cleared after use
+            factory.close(); // Close the session factory
+        }
     }
 
     private <T> T check(Session session, String value, Class<T> tClass) {
@@ -220,5 +220,4 @@ public class GraphHelperService {
             }
         }
     }
-
 }
